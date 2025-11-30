@@ -19,20 +19,22 @@ A professional, AI-powered tool for generating comprehensive literature reviews 
 ## Installation
 
 1. **Install Python dependencies:**
-\`\`\`bash
+```bash
+
 pip install -r scripts/requirements.txt
-\`\`\`
+```
 
 2. **Set environment variable:**
-\`\`\`bash
+```bash
+
 export OPENROUTER_API_KEY="your-api-key-here"
-\`\`\`
+```
 
 ## Usage
 
-\`\`\`bash
+```bash
 python scripts/literature_review_generator.py
-\`\`\`
+```
 
 ### Example Output
 
