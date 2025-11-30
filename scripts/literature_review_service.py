@@ -10,8 +10,7 @@ from typing import Optional
 import requests
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from dotenv import load_dotenv
-load_dotenv()
+
 
 @dataclass
 class Article:
@@ -50,11 +49,11 @@ class LiteratureReview:
 class LiteratureReviewGenerator:
     """Professional literature review generator using OpenRouter API"""
 
-    def __init__(self, api_key: str):
-        """Initialize with OpenRouter API key"""
+    def __init__(self, api_key: str, model: Optional[str] = None):
+        """Initialize with OpenRouter API key and optional custom model"""
         self.api_key = api_key
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
-        self.model = "x-ai/grok-4.1-fast:free"
+        self.model = model or os.getenv("MODEL", "x-ai/grok-4.1-fast:free")
 
     def generate_review(self, query: str) -> LiteratureReview:
         """Generate comprehensive literature review for given research query"""
@@ -216,8 +215,9 @@ def main():
         sys.exit(1)
 
     query = os.getenv("QUERY", "transformer-based OCR for historical documents")
+    custom_model = os.getenv("MODEL")
 
-    generator = LiteratureReviewGenerator(api_key)
+    generator = LiteratureReviewGenerator(api_key, custom_model)
     print(f"[LiteratureReviewService] Generating review for: {query}", file=sys.stderr)
 
     try:

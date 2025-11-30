@@ -4,6 +4,8 @@ import path from "path"
 
 interface LiteratureReviewRequest {
   query: string
+  apiKey?: string
+  model?: string
 }
 
 interface Article {
@@ -35,44 +37,70 @@ interface LiteratureReviewResponse {
 export async function POST(request: NextRequest) {
   try {
     const body: LiteratureReviewRequest = await request.json()
-    const { query } = body
+    const { query, apiKey, model } = body
 
     if (!query || typeof query !== "string") {
       return NextResponse.json({ error: "Invalid query parameter" }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      console.error("[v0] Missing OPENROUTER_API_KEY")
-      return NextResponse.json({ error: "API key not configured" }, { status: 500 })
+    const trimmedApiKey = apiKey?.trim()
+    const finalApiKey = trimmedApiKey || process.env.OPENROUTER_API_KEY
+    const finalModel = model?.trim() || "openai/gpt-4o-mini"
+
+    if (!finalApiKey) {
+      console.error("[v0] Missing OPENROUTER_API_KEY - no custom key provided and no env variable set")
+      return NextResponse.json(
+        { error: "API key not configured. Please add your API key in Settings." },
+        { status: 500 },
+      )
     }
 
-    console.log("[v0] Calling Python backend with query:", query)
+    if (!finalApiKey.startsWith("sk-")) {
+      console.error("[v0] Invalid API key format - should start with sk-")
+      return NextResponse.json({ error: "Invalid API key format. API keys should start with 'sk-'" }, { status: 400 })
+    }
 
-    // Call Python backend
-    const response = await callPythonBackend(query, apiKey)
+    console.log(
+      "[v0] Calling Python backend - Query:",
+      query,
+      "Model:",
+      finalModel,
+      "Using custom key:",
+      !!trimmedApiKey,
+    )
+
+    // Call Python backend service
+    const response = await callPythonBackend(query, finalApiKey, finalModel)
     return NextResponse.json(response)
-
   } catch (error) {
     console.error("[v0] API route error:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate literature review" },
-      { status: 500 }
-    )
+    const errorMessage = error instanceof Error ? error.message : "Failed to generate literature review"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 
-async function callPythonBackend(query: string, apiKey: string): Promise<LiteratureReviewResponse> {
+async function callPythonBackend(query: string, apiKey: string, model: string): Promise<LiteratureReviewResponse> {
   return new Promise((resolve, reject) => {
+    const pythonScriptPath = path.join(process.cwd(), "scripts", "literature_review_service.py")
 
-    const pythonPath = "C:\\Users\\user\\anaconda3\\envs\\myenv\\python.exe"   // ✅ FIXED PATH
-    const scriptPath = path.join(process.cwd(), "scripts", "literature_review_service.py")
+    let pythonPath = process.env.PYTHON_PATH || "python"
 
-    const pythonProcess = spawn(pythonPath, [scriptPath], {
+    // Try common Python installation paths on Windows if python3 is not available
+    if (process.platform === "win32") {
+      if (!pythonPath || pythonPath === "python") {
+        pythonPath = "C:\\Users\\user\\anaconda3\\envs\\myenv\\python.exe"
+      }
+    }
+
+    console.log("[v0] Spawning Python process with environment variables")
+    console.log("[v0] Python path:", pythonPath)
+
+    const pythonProcess = spawn(pythonPath, [pythonScriptPath], {
       env: {
         ...process.env,
         OPENROUTER_API_KEY: apiKey,
         QUERY: query,
+        MODEL: model,
       },
     })
 
@@ -81,33 +109,42 @@ async function callPythonBackend(query: string, apiKey: string): Promise<Literat
 
     pythonProcess.stdout?.on("data", (data) => {
       stdout += data.toString()
+      console.log("[v0] Python stdout:", data.toString())
     })
 
     pythonProcess.stderr?.on("data", (data) => {
       stderr += data.toString()
+      console.error("[v0] Python stderr:", data.toString())
     })
 
     pythonProcess.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(`Python exited with code ${code}: ${stderr}`))
+        console.error("[v0] Python process failed with code:", code, "stderr:", stderr)
+        reject(new Error(`Python process failed: ${stderr || "Unknown error"}`))
         return
       }
 
       try {
+        // Extract JSON from stdout
         const jsonMatch = stdout.match(/\{[\s\S]*\}/)
         if (!jsonMatch) {
+          console.error("[v0] No JSON output found in stdout:", stdout)
           reject(new Error("No JSON output from Python service"))
           return
         }
 
-        resolve(JSON.parse(jsonMatch[0]))
+        const result = JSON.parse(jsonMatch[0])
+        console.log("[v0] Successfully parsed Python response")
+        resolve(result)
       } catch (error) {
+        console.error("[v0] Failed to parse Python output:", error, "stdout:", stdout)
         reject(new Error(`Failed to parse Python output: ${error}`))
       }
     })
 
     pythonProcess.on("error", (error) => {
-      reject(new Error(`Failed to start Python process: ${error.message}`))
+      console.error("[v0] Failed to spawn Python process:", error)
+      reject(new Error(`Failed to spawn Python process: ${error.message}`))
     })
   })
 }

@@ -69,7 +69,7 @@ var __TURBOPACK__imported__module__$5b$externals$5d2f$path__$5b$external$5d$__$2
 async function POST(request) {
     try {
         const body = await request.json();
-        const { query } = body;
+        const { query, apiKey, model } = body;
         if (!query || typeof query !== "string") {
             return __TURBOPACK__imported__module__$5b$project$5d2f$Comprehensive_Literature$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                 error: "Invalid query parameter"
@@ -77,68 +77,96 @@ async function POST(request) {
                 status: 400
             });
         }
-        const apiKey = process.env.OPENROUTER_API_KEY;
-        if (!apiKey) {
-            console.error("[v0] Missing OPENROUTER_API_KEY");
+        const trimmedApiKey = apiKey?.trim();
+        const finalApiKey = trimmedApiKey || process.env.OPENROUTER_API_KEY;
+        const finalModel = model?.trim() || "openai/gpt-4o-mini";
+        if (!finalApiKey) {
+            console.error("[v0] Missing OPENROUTER_API_KEY - no custom key provided and no env variable set");
             return __TURBOPACK__imported__module__$5b$project$5d2f$Comprehensive_Literature$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                error: "API key not configured"
+                error: "API key not configured. Please add your API key in Settings."
             }, {
                 status: 500
             });
         }
-        console.log("[v0] Calling Python backend with query:", query);
-        // Call Python backend
-        const response = await callPythonBackend(query, apiKey);
+        if (!finalApiKey.startsWith("sk-")) {
+            console.error("[v0] Invalid API key format - should start with sk-");
+            return __TURBOPACK__imported__module__$5b$project$5d2f$Comprehensive_Literature$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                error: "Invalid API key format. API keys should start with 'sk-'"
+            }, {
+                status: 400
+            });
+        }
+        console.log("[v0] Calling Python backend - Query:", query, "Model:", finalModel, "Using custom key:", !!trimmedApiKey);
+        // Call Python backend service
+        const response = await callPythonBackend(query, finalApiKey, finalModel);
         return __TURBOPACK__imported__module__$5b$project$5d2f$Comprehensive_Literature$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json(response);
     } catch (error) {
         console.error("[v0] API route error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to generate literature review";
         return __TURBOPACK__imported__module__$5b$project$5d2f$Comprehensive_Literature$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            error: error instanceof Error ? error.message : "Failed to generate literature review"
+            error: errorMessage
         }, {
             status: 500
         });
     }
 }
-async function callPythonBackend(query, apiKey) {
+async function callPythonBackend(query, apiKey, model) {
     return new Promise((resolve, reject)=>{
-        const pythonPath = "C:\\Users\\user\\anaconda3\\envs\\myenv\\python.exe" // ✅ FIXED PATH
-        ;
-        const scriptPath = __TURBOPACK__imported__module__$5b$externals$5d2f$path__$5b$external$5d$__$28$path$2c$__cjs$29$__["default"].join(process.cwd(), "scripts", "literature_review_service.py");
+        const pythonScriptPath = __TURBOPACK__imported__module__$5b$externals$5d2f$path__$5b$external$5d$__$28$path$2c$__cjs$29$__["default"].join(process.cwd(), "scripts", "literature_review_service.py");
+        let pythonPath = process.env.PYTHON_PATH || "python";
+        // Try common Python installation paths on Windows if python3 is not available
+        if (process.platform === "win32") {
+            if (!pythonPath || pythonPath === "python") {
+                pythonPath = "C:\\Users\\user\\anaconda3\\envs\\myenv\\python.exe";
+            }
+        }
+        console.log("[v0] Spawning Python process with environment variables");
+        console.log("[v0] Python path:", pythonPath);
         const pythonProcess = (0, __TURBOPACK__imported__module__$5b$externals$5d2f$child_process__$5b$external$5d$__$28$child_process$2c$__cjs$29$__["spawn"])(pythonPath, [
-            scriptPath
+            pythonScriptPath
         ], {
             env: {
                 ...process.env,
                 OPENROUTER_API_KEY: apiKey,
-                QUERY: query
+                QUERY: query,
+                MODEL: model
             }
         });
         let stdout = "";
         let stderr = "";
         pythonProcess.stdout?.on("data", (data)=>{
             stdout += data.toString();
+            console.log("[v0] Python stdout:", data.toString());
         });
         pythonProcess.stderr?.on("data", (data)=>{
             stderr += data.toString();
+            console.error("[v0] Python stderr:", data.toString());
         });
         pythonProcess.on("close", (code)=>{
             if (code !== 0) {
-                reject(new Error(`Python exited with code ${code}: ${stderr}`));
+                console.error("[v0] Python process failed with code:", code, "stderr:", stderr);
+                reject(new Error(`Python process failed: ${stderr || "Unknown error"}`));
                 return;
             }
             try {
+                // Extract JSON from stdout
                 const jsonMatch = stdout.match(/\{[\s\S]*\}/);
                 if (!jsonMatch) {
+                    console.error("[v0] No JSON output found in stdout:", stdout);
                     reject(new Error("No JSON output from Python service"));
                     return;
                 }
-                resolve(JSON.parse(jsonMatch[0]));
+                const result = JSON.parse(jsonMatch[0]);
+                console.log("[v0] Successfully parsed Python response");
+                resolve(result);
             } catch (error) {
+                console.error("[v0] Failed to parse Python output:", error, "stdout:", stdout);
                 reject(new Error(`Failed to parse Python output: ${error}`));
             }
         });
         pythonProcess.on("error", (error)=>{
-            reject(new Error(`Failed to start Python process: ${error.message}`));
+            console.error("[v0] Failed to spawn Python process:", error);
+            reject(new Error(`Failed to spawn Python process: ${error.message}`));
         });
     });
 }

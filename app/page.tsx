@@ -7,6 +7,7 @@ import QueryInput from "@/components/query-input"
 import ArticleResults from "@/components/article-results"
 import SynthesisSection from "@/components/synthesis-section"
 import ThemeToggle from "@/components/theme-toggle"
+import SettingsButton from "@/components/settings-button"
 
 interface LiteratureReview {
   articles: Article[]
@@ -40,7 +41,7 @@ export default function Home() {
   const [review, setReview] = useState<LiteratureReview | null>(null)
   const [error, setError] = useState("")
 
-  const handleSearch = async (searchQuery: string) => {
+  const handleSearch = async (searchQuery: string, customApiKey?: string, customModel?: string) => {
     if (!searchQuery.trim()) {
       setError("Please enter a research query")
       return
@@ -52,20 +53,38 @@ export default function Home() {
     setReview(null)
 
     try {
+      const body: any = { query: searchQuery }
+
+      if (customApiKey?.trim()) {
+        console.log("[v0] Using custom API key")
+        body.apiKey = customApiKey.trim()
+      } else {
+        console.log("[v0] Using default API key from environment")
+      }
+
+      if (customModel?.trim()) {
+        body.model = customModel.trim()
+      }
+
+      console.log("[v0] Sending request with body:", { query: body.query, hasApiKey: !!body.apiKey, model: body.model })
+
       const response = await fetch("/api/literature-review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery }),
+        body: JSON.stringify(body),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`)
+        const errorMessage = data.error || `API error: ${response.statusText}`
+        throw new Error(errorMessage)
       }
 
-      const data = await response.json()
       setReview(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate literature review")
+      const errorMessage = err instanceof Error ? err.message : "Failed to generate literature review"
+      setError(errorMessage)
       console.error("[v0] Literature review error:", err)
     } finally {
       setLoading(false)
@@ -86,7 +105,10 @@ export default function Home() {
               <p className="text-xs text-muted-foreground">Research Landscape Generator</p>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <SettingsButton />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

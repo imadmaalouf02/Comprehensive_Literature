@@ -7,21 +7,30 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 
 interface QueryInputProps {
-  onSearch: (query: string) => void
+  onSearch: (query: string, customApiKey?: string, customModel?: string) => void
   isLoading: boolean
 }
 
 export default function QueryInput({ onSearch, isLoading }: QueryInputProps) {
   const [input, setInput] = useState("")
+  const [showApiWarning, setShowApiWarning] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSearch(input)
+    const customApiKey = localStorage.getItem("custom-api-key") || ""
+    const customModel = localStorage.getItem("custom-model") || "openai/gpt-4o-mini"
+
+    if (!customApiKey.trim()) {
+      console.log("[v0] Using default API key from environment")
+    }
+
+    console.log("[v0] Search initiated - API Key present:", !!customApiKey.trim(), "Model:", customModel)
+
+    onSearch(input, customApiKey, customModel)
   }
 
   const suggestions = [
-    "solar energy with AI techniques such as deep learning or Federated learning.",
-    "Find articles about solar energy that incorporate AI techniques such as deep learning or feedforward learning.",
+    "Transformer-based OCR for historical documents",
     "Social thermodynamics of learning in reinforcement learning",
     "Federated learning for privacy-preserving machine learning",
     "Vision transformers for medical imaging",
@@ -34,7 +43,7 @@ export default function QueryInput({ onSearch, isLoading }: QueryInputProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-2">
             <Input
-              placeholder="e.g., 'solar energy with AI techniques such as deep learning or Federated learning.'"
+              placeholder="e.g., 'Vision transformers for medical imaging'"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
