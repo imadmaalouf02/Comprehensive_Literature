@@ -1,0 +1,4 @@
+{
+  "/api/literature-review/route": "app/api/literature-review/route.js",
+  "/page": "app/page.js"
+}
