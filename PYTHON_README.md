@@ -10,10 +10,6 @@ A professional, AI-powered tool for generating comprehensive literature reviews 
 - Field-wide synthesis with gaps and future directions
 - Dark mode terminal output for easy reading
 
-🎨 **Dark Mode**
-- Color-coded output for terminal readability
-- Automatic color scheme for dark terminals
-- Beautiful formatting with visual hierarchy
 
 🔧 **Easy Setup**
 - Simple environment variable configuration

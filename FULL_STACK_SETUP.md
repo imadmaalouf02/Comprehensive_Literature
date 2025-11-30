@@ -25,8 +25,8 @@ A professional full-stack application combining React frontend, Next.js API rout
            │ HTTP Request
            ▼
 ┌──────────────────────┐
-│  OpenRouter API      │  (GPT-4 via OpenRouter)
-│  (OpenAI Models)     │
+│  OpenRouter API      │  (via OpenRouter)
+│   │
 └──────────────────────┘
 \`\`\`
 
@@ -58,7 +58,7 @@ OPENROUTER_API_KEY=your-api-key-here
 pip install -r scripts/requirements.txt
 
 # Verify Python 3.9+
-python3 --version
+python --version
 \`\`\`
 
 ### 3. Configuration
@@ -111,28 +111,6 @@ npm run start
 | `NEXT_PUBLIC_API_URL` | Frontend API endpoint | ❌ No |
 | `NODE_ENV` | Environment (development/production) | ✅ Auto-set |
 
-## Project Structure
-
-\`\`\`
-.
-├── app/
-│   ├── api/
-│   │   └── literature-review/
-│   │       └── route.ts           # API bridge (Node + Python)
-│   ├── page.tsx                   # Main page component
-│   ├── layout.tsx                 # Root layout
-│   └── globals.css                # Global styles & dark theme
-├── components/
-│   ├── query-input.tsx            # Search form component
-│   ├── article-results.tsx        # Article cards display
-│   ├── synthesis-section.tsx      # Field analysis cards
-│   └── theme-toggle.tsx           # Dark/light mode toggle
-├── scripts/
-│   ├── literature_review_service.py  # Python backend service
-│   └── requirements.txt            # Python dependencies
-├── public/                         # Static assets
-└── package.json                   # Node dependencies
-\`\`\`
 
 ## Component Descriptions
 
@@ -202,17 +180,12 @@ The application uses:
 - **Semantic CSS variables** defined in `app/globals.css`
 - **Responsive design** using flexbox and grid layouts
 
-Theme colors:
-- Background: Deep dark (`oklch(0.13 0 0)`)
-- Card: Slightly lighter dark (`oklch(0.16 0 0)`)
-- Primary: Blue accent (`oklch(0.55 0.21 258.7)`)
-- Accent: Purple/blue (`oklch(0.58 0.2 250)`)
 
 ## Troubleshooting
 
 ### Python Process Not Found
-- Ensure Python 3.9+ is installed: `python3 --version`
-- Check Python is in PATH: `which python3`
+- Ensure Python 3.9+ is installed: `python --version`
+- Check Python is in PATH: `which python`
 
 ### OpenRouter API Errors
 - Verify API key is valid at https://openrouter.ai
@@ -224,10 +197,7 @@ Theme colors:
 - Verify OpenRouter response format matches expected schema
 - Try with a simpler query
 
-### Dark Mode Not Applied
-- Clear browser cache
-- Check `dark` class is added to `<html>` element
-- Verify CSS variables are defined in `:root` or `.dark` selector
+
 
 ## Deployment
 
